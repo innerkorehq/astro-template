@@ -1,0 +1,430 @@
+---
+/**
+ * PageLayout.astro
+ * ─────────────────────────────────────────────────────────────────
+ * A composable, slot-based page layout system for Astro.
+ *
+ * Variants
+ * ────────
+ *  "centered"       Content column constrained to a max-width
+ *  "full-width"     Edge-to-edge, no horizontal constraint
+ *  "sidebar-left"   Left sidebar + main (collapsible)
+ *  "sidebar-right"  Right sidebar + main (collapsible)
+ *  "sidebar-both"   Left nav + main + right panel
+ *  "holy-grail"     Header + left sidebar + main + right panel + footer
+ *  "dashboard"      Sticky topbar + collapsible left sidebar + main canvas
+ *
+ * Named slots (ALL optional)
+ * ──────────────────────────
+ *  slot="header"    Sticky site header / navbar
+ *  slot="topbar"    Secondary bar beneath header (breadcrumb / tabs)
+ *  slot="sidebar"   Left sidebar navigation
+ *  slot="panel"     Right contextual panel
+ *  slot="main"      Primary content area   ← default slot also fills this
+ *  slot="footer"    Site footer
+ *
+ * Usage
+ * ─────
+ *  <PageLayout variant="dashboard">
+ *    <Header slot="header" />
+ *    <Sidebar slot="sidebar" />
+ *    <article slot="main">…</article>
+ *    <aside   slot="panel">…</aside>
+ *    <Footer  slot="footer" />
+ *  </PageLayout>
+ */
+
+import type { LayoutVariant } from "./types.ts"
+
+interface Props {
+  /** Layout variant. Defaults to "centered". */
+  variant?: LayoutVariant
+  /**
+   * Left sidebar width. Any valid CSS length.
+   * Defaults to clamp(200px, 22vw, 260px)
+   */
+  sidebarWidth?: string
+  /**
+   * Right panel width. Any valid CSS length.
+   * Defaults to clamp(180px, 20vw, 240px)
+   */
+  panelWidth?: string
+  /** Max-width for centered variant. Default: "72ch" */
+  centeredMaxWidth?: string
+  /** Whether the sidebar starts collapsed. Default: false */
+  sidebarCollapsed?: boolean
+  /** Additional class(es) on the outer wrapper */
+  class?: string
+  /** Additional inline styles on the outer wrapper */
+  style?: string
+}
+
+const {
+  variant = "centered",
+  sidebarWidth = "clamp(200px, 22vw, 260px)",
+  panelWidth = "clamp(180px, 20vw, 240px)",
+  centeredMaxWidth = "72ch",
+  sidebarCollapsed = false,
+  class: className,
+  style,
+} = Astro.props
+
+const hasSidebar = ["sidebar-left", "sidebar-right", "sidebar-both", "holy-grail", "dashboard"].includes(variant)
+const hasPanel   = ["sidebar-both", "holy-grail"].includes(variant)
+const hasTopbar  = variant === "dashboard"
+const sidebarOnRight = variant === "sidebar-right"
+---
+
+<div
+  data-layout={variant}
+  data-sidebar-collapsed={sidebarCollapsed ? "true" : "false"}
+  class:list={["page-layout", `layout--${variant}`, className]}
+  style={[
+    `--sidebar-width:${sidebarWidth};`,
+    `--panel-width:${panelWidth};`,
+    `--centered-max:${centeredMaxWidth};`,
+    style,
+  ].filter(Boolean).join(" ")}
+>
+  <!-- ── Header slot ────────────────────────────────────────── -->
+  {Astro.slots.has("header") && (
+    <header class="pl-header" role="banner">
+      <slot name="header" />
+    </header>
+  )}
+
+  <!-- ── Topbar slot (dashboard variant) ───────────────────── -->
+  {Astro.slots.has("topbar") && (
+    <div class="pl-topbar" role="navigation" aria-label="Secondary navigation">
+      <slot name="topbar" />
+    </div>
+  )}
+
+  <!-- ── Mid: sidebar(s) + main ────────────────────────────── -->
+  <div class="pl-mid">
+
+    <!-- Left sidebar -->
+    {hasSidebar && !sidebarOnRight && (
+      <aside
+        id="pl-sidebar"
+        class="pl-sidebar"
+        aria-label="Site navigation"
+        data-sidebar
+      >
+        <div class="pl-sidebar__inner">
+          <slot name="sidebar" />
+        </div>
+      </aside>
+    )}
+
+    <!-- Main content -->
+    <main class="pl-main" id="main-content" tabindex="-1">
+      {variant === "centered"
+        ? <div class="pl-centered"><slot name="main" /><slot /></div>
+        : <><slot name="main" /><slot /></>
+      }
+    </main>
+
+    <!-- Right sidebar -->
+    {hasSidebar && sidebarOnRight && (
+      <aside
+        id="pl-sidebar"
+        class="pl-sidebar pl-sidebar--right"
+        aria-label="Contextual panel"
+        data-sidebar
+      >
+        <div class="pl-sidebar__inner">
+          <slot name="sidebar" />
+        </div>
+      </aside>
+    )}
+
+    <!-- Right panel (sidebar-both / holy-grail) -->
+    {hasPanel && (
+      <aside class="pl-panel" aria-label="Details panel">
+        <slot name="panel" />
+      </aside>
+    )}
+  </div>
+
+  <!-- ── Footer slot ────────────────────────────────────────── -->
+  {Astro.slots.has("footer") && (
+    <footer class="pl-footer" role="contentinfo">
+      <slot name="footer" />
+    </footer>
+  )}
+</div>
+
+<!-- ── Sidebar toggle script (vanilla, no framework needed) ── -->
+{hasSidebar && (
+  <script>
+    (() => {
+      const STORAGE_KEY = "pl-sidebar-collapsed"
+
+      function initLayout(root: HTMLElement) {
+        const sidebar   = root.querySelector<HTMLElement>("[data-sidebar]")
+        const toggleBtns = document.querySelectorAll<HTMLElement>("[data-sidebar-toggle]")
+        if (!sidebar) return
+
+        // Restore persisted state, then honour the prop default
+        const persisted = sessionStorage.getItem(STORAGE_KEY)
+        const startCollapsed =
+          persisted !== null
+            ? persisted === "true"
+            : root.dataset.sidebarCollapsed === "true"
+
+        function setCollapsed(collapsed: boolean, animate = false) {
+          if (animate) sidebar!.style.transition = "width 0.22s ease, opacity 0.18s ease"
+          sidebar!.dataset.collapsed = String(collapsed)
+          root.dataset.sidebarCollapsed = String(collapsed)
+          sessionStorage.setItem(STORAGE_KEY, String(collapsed))
+          toggleBtns.forEach(btn => {
+            btn.setAttribute("aria-expanded", String(!collapsed))
+            btn.setAttribute("aria-label", collapsed ? "Open sidebar" : "Close sidebar")
+          })
+          // Emit custom event so user code can react
+          root.dispatchEvent(new CustomEvent("sidebar:change", { detail: { collapsed }, bubbles: true }))
+        }
+
+        // Apply initial state without animation
+        setCollapsed(startCollapsed, false)
+
+        toggleBtns.forEach(btn => {
+          btn.addEventListener("click", () => {
+            const isCollapsed = sidebar!.dataset.collapsed === "true"
+            setCollapsed(!isCollapsed, true)
+          })
+        })
+
+        // Close sidebar on mobile overlay tap
+        root.addEventListener("click", (e) => {
+          if (
+            window.innerWidth < 768 &&
+            sidebar!.dataset.collapsed !== "true" &&
+            !sidebar!.contains(e.target as Node) &&
+            !(e.target as HTMLElement).closest("[data-sidebar-toggle]")
+          ) {
+            setCollapsed(true, true)
+          }
+        })
+
+        // Auto-collapse on mobile
+        const mq = window.matchMedia("(max-width: 767px)")
+        mq.addEventListener("change", (e) => {
+          if (e.matches) setCollapsed(true, true)
+        })
+        if (mq.matches && persisted === null) setCollapsed(true, true)
+      }
+
+      document.querySelectorAll<HTMLElement>("[data-layout]").forEach(initLayout)
+    })()
+  </script>
+)}
+
+<style>
+  /* ═══════════════════════════════════════════════════════════
+     Base — mobile-first
+  ═══════════════════════════════════════════════════════════ */
+  .page-layout {
+    --pl-header-h: 56px;
+    --pl-topbar-h: 40px;
+    --pl-sidebar-border: 1px solid var(--color-border, hsl(220 13% 91%));
+    --pl-bg: var(--color-bg, #fff);
+    --pl-text: var(--color-text, hsl(222 47% 11%));
+    --pl-muted: var(--color-muted, hsl(220 9% 46%));
+    --pl-surface: var(--color-surface, hsl(220 14% 96%));
+
+    display: flex;
+    flex-direction: column;
+    min-height: 100dvh;
+    background: var(--pl-bg);
+    color: var(--pl-text);
+  }
+
+  /* ── Header ── */
+  .pl-header {
+    position: sticky;
+    top: 0;
+    z-index: 40;
+    height: var(--pl-header-h);
+    background: var(--pl-bg);
+    border-bottom: var(--pl-sidebar-border);
+    /* Frosted glass on supporting browsers */
+    @supports (backdrop-filter: blur(12px)) {
+      background: color-mix(in srgb, var(--pl-bg) 88%, transparent);
+      backdrop-filter: blur(12px);
+      -webkit-backdrop-filter: blur(12px);
+    }
+  }
+
+  /* ── Topbar ── */
+  .pl-topbar {
+    position: sticky;
+    top: var(--pl-header-h);
+    z-index: 30;
+    height: var(--pl-topbar-h);
+    background: var(--pl-surface);
+    border-bottom: var(--pl-sidebar-border);
+    overflow-x: auto;
+    scrollbar-width: none;
+  }
+  .pl-topbar::-webkit-scrollbar { display: none; }
+
+  /* ── Mid section ── */
+  .pl-mid {
+    display: flex;
+    flex: 1;
+    overflow: hidden;
+    position: relative;
+  }
+
+  /* ── Sidebar ── */
+  .pl-sidebar {
+    /* Mobile: off-canvas overlay */
+    position: fixed;
+    inset: 0 auto 0 0;
+    z-index: 50;
+    width: var(--sidebar-width);
+    max-width: 85vw;
+    background: var(--pl-bg);
+    border-right: var(--pl-sidebar-border);
+    overflow-y: auto;
+    overflow-x: hidden;
+    overscroll-behavior: contain;
+    /* Slide in from left */
+    transform: translateX(0);
+    transition: transform 0.22s ease, box-shadow 0.22s ease;
+    box-shadow: 4px 0 24px hsl(220 13% 10% / 0.12);
+  }
+  .pl-sidebar[data-collapsed="true"] {
+    transform: translateX(-100%);
+    box-shadow: none;
+  }
+  .pl-sidebar--right {
+    inset: 0 0 0 auto;
+    border-right: none;
+    border-left: var(--pl-sidebar-border);
+    transform: translateX(0);
+    box-shadow: -4px 0 24px hsl(220 13% 10% / 0.12);
+  }
+  .pl-sidebar--right[data-collapsed="true"] {
+    transform: translateX(100%);
+    box-shadow: none;
+  }
+  .pl-sidebar__inner {
+    width: var(--sidebar-width);
+    max-width: 85vw;
+    min-height: 100%;
+    padding-bottom: 2rem;
+  }
+
+  /* ── Panel ── */
+  .pl-panel {
+    display: none; /* hidden on mobile */
+    width: var(--panel-width);
+    flex-shrink: 0;
+    border-left: var(--pl-sidebar-border);
+    overflow-y: auto;
+    background: var(--pl-bg);
+  }
+
+  /* ── Main ── */
+  .pl-main {
+    flex: 1;
+    overflow-y: auto;
+    min-width: 0;
+    outline: none;
+  }
+  .pl-main:focus-visible {
+    outline: 2px solid hsl(221 83% 53%);
+    outline-offset: -2px;
+  }
+
+  /* ── Centered wrapper ── */
+  .pl-centered {
+    max-width: var(--centered-max);
+    margin-inline: auto;
+    padding-inline: 1.25rem;
+    padding-block: 2rem;
+  }
+
+  /* ── Footer ── */
+  .pl-footer {
+    border-top: var(--pl-sidebar-border);
+    background: var(--pl-bg);
+  }
+
+  /* ═══════════════════════════════════════════════════════════
+     Tablet+ (≥ 768px) — sidebar becomes inline, not overlay
+  ═══════════════════════════════════════════════════════════ */
+  @media (min-width: 768px) {
+    .pl-sidebar {
+      position: sticky;
+      top: 0;
+      height: calc(100dvh - var(--pl-header-h));
+      flex-shrink: 0;
+      box-shadow: none;
+      transform: none !important; /* override inline transition */
+      /* Collapse via width instead of translate */
+      width: var(--sidebar-width);
+      transition: width 0.22s ease, opacity 0.15s ease;
+    }
+    .pl-sidebar[data-collapsed="true"] {
+      width: 0;
+      opacity: 0;
+      pointer-events: none;
+      overflow: hidden;
+    }
+    .pl-sidebar--right {
+      transform: none !important;
+    }
+    .pl-sidebar--right[data-collapsed="true"] {
+      width: 0;
+      opacity: 0;
+      pointer-events: none;
+    }
+    .pl-panel {
+      display: block;
+      position: sticky;
+      top: 0;
+      height: calc(100dvh - var(--pl-header-h));
+    }
+  }
+
+  /* ═══════════════════════════════════════════════════════════
+     Dashboard — topbar offset
+  ═══════════════════════════════════════════════════════════ */
+  .layout--dashboard .pl-sidebar {
+    top: 0;
+  }
+  @media (min-width: 768px) {
+    .layout--dashboard .pl-sidebar {
+      height: calc(100dvh - var(--pl-header-h) - var(--pl-topbar-h));
+      top: 0;
+    }
+  }
+
+  /* ═══════════════════════════════════════════════════════════
+     Full-width — no padding override
+  ═══════════════════════════════════════════════════════════ */
+  .layout--full-width .pl-main {
+    padding: 0;
+  }
+
+  /* ═══════════════════════════════════════════════════════════
+     Mobile overlay backdrop (injected by JS)
+  ═══════════════════════════════════════════════════════════ */
+  .pl-overlay {
+    display: none;
+    position: fixed;
+    inset: 0;
+    z-index: 49;
+    background: hsl(220 13% 5% / 0.4);
+    backdrop-filter: blur(2px);
+    -webkit-backdrop-filter: blur(2px);
+    transition: opacity 0.2s ease;
+  }
+  .pl-overlay.visible {
+    display: block;
+  }
+</style>

@@ -1,0 +1,104 @@
+---
+/**
+ * SidebarToggle.astro
+ * ────────────────────────────────────────────────────────────────
+ * A zero-JS-framework toggle button for PageLayout sidebars.
+ * Uses data-sidebar-toggle — the PageLayout script listens for it.
+ *
+ * Usage
+ * ─────
+ *  <SidebarToggle />                         <!-- default icon + label -->
+ *  <SidebarToggle label="Menu" />
+ *  <SidebarToggle class="my-btn" />
+ *
+ * Place anywhere inside <PageLayout> — typically in the header.
+ */
+
+interface Props {
+  /** Accessible label. Default: "Toggle sidebar" */
+  label?: string
+  /** Additional class(es) */
+  class?: string
+  /** icon size in px. Default: 20 */
+  iconSize?: number
+}
+
+const {
+  label = "Toggle sidebar",
+  class: className,
+  iconSize = 20,
+} = Astro.props
+---
+
+<button
+  type="button"
+  data-sidebar-toggle
+  aria-expanded="true"
+  aria-label={label}
+  aria-controls="pl-sidebar"
+  class:list={["sidebar-toggle", className]}
+>
+  <!-- Hamburger → X morphing icon (CSS-driven) -->
+  <span class="sidebar-toggle__icon" aria-hidden="true" style={`--sz:${iconSize}px`}>
+    <span class="bar bar--1"></span>
+    <span class="bar bar--2"></span>
+    <span class="bar bar--3"></span>
+  </span>
+  {Astro.slots.has("default") && <slot />}
+</button>
+
+<style>
+  .sidebar-toggle {
+    display: inline-flex;
+    align-items: center;
+    justify-content: center;
+    gap: 0.5rem;
+    padding: 0.375rem;
+    background: transparent;
+    border: 1px solid transparent;
+    border-radius: 6px;
+    cursor: pointer;
+    color: inherit;
+    line-height: 1;
+    transition: background 0.15s, border-color 0.15s;
+    -webkit-tap-highlight-color: transparent;
+  }
+  .sidebar-toggle:hover {
+    background: var(--color-surface, hsl(220 14% 96%));
+    border-color: var(--color-border, hsl(220 13% 91%));
+  }
+  .sidebar-toggle:focus-visible {
+    outline: 2px solid hsl(221 83% 53%);
+    outline-offset: 2px;
+  }
+
+  /* ── Morphing hamburger ── */
+  .sidebar-toggle__icon {
+    position: relative;
+    display: flex;
+    flex-direction: column;
+    justify-content: space-between;
+    width: var(--sz, 20px);
+    height: calc(var(--sz, 20px) * 0.65);
+  }
+  .bar {
+    display: block;
+    width: 100%;
+    height: 1.5px;
+    background: currentColor;
+    border-radius: 2px;
+    transform-origin: center;
+    transition: transform 0.22s ease, opacity 0.22s ease, width 0.22s ease;
+  }
+  /* Collapsed → show X */
+  [aria-expanded="false"] .bar--1 {
+    transform: translateY(calc(var(--sz, 20px) * 0.30)) rotate(45deg);
+  }
+  [aria-expanded="false"] .bar--2 {
+    opacity: 0;
+    transform: scaleX(0);
+  }
+  [aria-expanded="false"] .bar--3 {
+    transform: translateY(calc(var(--sz, 20px) * -0.30)) rotate(-45deg);
+  }
+</style>
