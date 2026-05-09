@@ -15,5 +15,13 @@ export default defineConfig({
   ],
   vite: {
     plugins: [tailwindcss()],
+    optimizeDeps: {
+      include: [
+        "class-variance-authority",
+        "radix-ui",
+        "clsx",
+        "tailwind-merge",
+      ],
+    },
   },
 });
