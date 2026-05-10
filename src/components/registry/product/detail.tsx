@@ -9,7 +9,7 @@ import {
 } from "../../utils/product/ProductDetail.parts";
 import { ProductCard } from "../../utils/product/ProductCard";
 import { cn } from "../../utils/product/format";
-import { defaultProductListCopy } from "../../utils/product/types";
+import { defaultProductListCopy, type Product as UtilProduct } from "../../utils/product/types";
 import {
   defaultProductDetailCopy,
   type ProductDetail,
@@ -17,10 +17,58 @@ import {
   type ProductDetailVariant,
   type ProductReview,
 } from "../../utils/product/detail-types";
+import type { ProductDetailItem, ProductItem } from "./types.js";
+
+// Adapter: canonical ProductDetailItem → utils' ProductDetail (minor-unit prices)
+function toUtilDetail(item: ProductDetailItem): ProductDetail {
+  const toMinor = (n: number) => Math.round(n * 100);
+  const toPrice  = (p: ProductDetailItem["price"]) => ({
+    amount:    toMinor(p.amount),
+    compareAt: p.compareAt != null ? toMinor(p.compareAt) : undefined,
+    currency:  p.currency,
+    locale:    p.locale,
+  });
+  const toStockState = (s: ProductDetailItem["stock"]): ProductDetail["stock"] =>
+    s.kind === "out-of-stock"  ? { kind: "out-of-stock" }
+    : s.kind === "low-stock"   ? { kind: "low-stock",  remaining: (s as { remaining: number }).remaining }
+    : s.kind === "preorder"    ? { kind: "preorder",   shipsOn: (s as { shipsOn: string }).shipsOn }
+    : { kind: "in-stock" };
+
+  return {
+    id:          item.id,
+    name:        item.name,
+    brand:       item.brand,
+    tagline:     item.tagline,
+    description: item.description,
+    gallery:     item.gallery.map((img) => ({ src: img.src, alt: img.alt, aspectRatio: img.aspectRatio ?? 1 })),
+    basePrice:   toPrice(item.price),
+    stock:       toStockState(item.stock),
+    badges:      item.badges.map((b) => ({ kind: b.kind as ProductDetail["badges"][number]["kind"], label: b.label })),
+    reviews:     item.reviews,
+    options:     item.options?.map((o) => ({
+      id: o.id, label: o.name, kind: o.kind,
+      values: o.values.map((v) => ({ id: v.id, label: v.label, swatchColor: v.swatch, swatchImage: undefined, disabled: v.disabled })),
+    })),
+    variants:    item.variants?.map((v) => ({
+      id: v.id, sku: v.sku, selection: v.selection,
+      price: toPrice(v.price),
+      stock: toStockState(v.stock),
+    })),
+    highlights:  item.highlights,
+    sections:    item.sections?.map((s) => ({ id: s.id, title: s.title, body: s.body, specs: s.specs, defaultOpen: s.defaultOpen })),
+    relatedProducts: item.relatedProducts?.map((r) => ({
+      id: r.id, name: r.name, brand: r.brand, description: r.description,
+      image: { src: r.images[0]?.src ?? "", alt: r.images[0]?.alt ?? r.name, aspectRatio: 1 },
+      price: toPrice(r.price),
+      href:  r.href,
+    })) as UtilProduct[],
+    breadcrumbs: item.breadcrumbs,
+  };
+}
 
 export interface ProductDetailPageProps {
-  /** Full product data. */
-  readonly product: ProductDetail;
+  /** Full product data — accepts the canonical ProductDetailItem contract. */
+  readonly product: ProductDetailItem;
 
   /** Layout variant. Defaults to "classic". */
   readonly variant?: ProductDetailVariant;
@@ -43,7 +91,7 @@ export interface ProductDetailPageProps {
 }
 
 export function ProductDetailPage({
-  product,
+  product: productProp,
   variant = "classic",
   copy: copyOverride,
   reviews,
@@ -53,6 +101,9 @@ export function ProductDetailPage({
   onBuyNow,
   className,
 }: ProductDetailPageProps): React.ReactElement {
+  // Convert canonical ProductDetailItem → utils' ProductDetail for rendering
+  const product = React.useMemo(() => toUtilDetail(productProp), [productProp]);
+
   const copy: ProductDetailCopy = React.useMemo(
     () => ({ ...defaultProductDetailCopy, ...copyOverride }),
     [copyOverride]

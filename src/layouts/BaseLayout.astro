@@ -1,0 +1,67 @@
+---
+import Navigation from '@/components/Navigation.astro';
+import '@/styles/global.css';
+
+interface Props {
+  title: string;
+  description?: string | null;
+  canonical?: string | null;
+  ogTitle?: string | null;
+  ogDescription?: string | null;
+  ogImage?: string | null;
+  noindex?: boolean;
+  nofollow?: boolean;
+}
+
+const {
+  title,
+  description,
+  canonical,
+  ogTitle,
+  ogDescription,
+  ogImage,
+  noindex  = false,
+  nofollow = false,
+} = Astro.props;
+
+const site    = Astro.locals.siteConfig;
+const robots  = [noindex ? 'noindex' : 'index', nofollow ? 'nofollow' : 'follow'].join(', ');
+const fullTitle = title === site.name ? title : `${title} | ${site.name}`;
+---
+
+<!doctype html>
+<html lang={site.locale}>
+  <head>
+    <meta charset="UTF-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+
+    <title>{fullTitle}</title>
+    {description && <meta name="description" content={description} />}
+    <meta name="robots" content={robots} />
+    {canonical && <link rel="canonical" href={canonical} />}
+
+    <meta property="og:type"  content="website" />
+    <meta property="og:title" content={ogTitle ?? title} />
+    {(ogDescription ?? description) && (
+      <meta property="og:description" content={ogDescription ?? description!} />
+    )}
+    {ogImage && <meta property="og:image" content={ogImage} />}
+
+    {site.favicon_url
+      ? <link rel="icon" href={site.favicon_url} />
+      : <link rel="icon" href="/favicon.svg" type="image/svg+xml" />
+    }
+  </head>
+  <body class="bg-background text-foreground min-h-screen flex flex-col">
+    <Navigation />
+    <main id="main-content" tabindex="-1" class="flex-1">
+      <slot />
+    </main>
+    <footer class="border-t border-border py-6">
+      <div class="max-w-5xl mx-auto px-4 sm:px-6 lg:px-8 flex items-center justify-between text-xs text-muted-foreground">
+        <span>© {new Date().getFullYear()} {site.name}</span>
+        {site.tagline && <span class="hidden sm:inline">{site.tagline}</span>}
+      </div>
+    </footer>
+  </body>
+</html>

@@ -1,0 +1,80 @@
+---
+import { getPageByPath, getPageTree, getSeoMeta } from "@/db/index";
+import { resolveBlocks } from "@/lib/blocks/resolver";
+import type { Block } from "@/lib/blocks/types";
+import BaseLayout from "@/layouts/BaseLayout.astro";
+import BlockRenderer from "@/components/BlockRenderer.astro";
+
+export function getStaticPaths() {
+  return getPageTree()
+    .filter((p) => p.status === "published" && p.deleted_at === null && p.path !== "/")
+    .map((p) => ({ params: { slug: p.path.replace(/^\//, "") } }));
+}
+
+const { slug } = Astro.params;
+const path     = `/${slug ?? ""}`;
+const locale   = Astro.locals.siteConfig.locale;
+
+const page = getPageByPath(path, locale);
+
+if (!page || page.status !== "published") return Astro.rewrite("/404");
+
+// Redirect pages
+if (page.type === "redirect") {
+  const first = page.content?.body?.[0] as (Block & { attrs?: { url?: string } }) | undefined;
+  return Astro.redirect(first?.attrs?.url ?? "/", 301);
+}
+
+// Resolve all blocks in the page body with page context
+const rawBlocks = (page.content?.body ?? []) as Block[];
+const ctx = {
+  page_ref_id:   page.ref_id   ?? undefined,
+  page_ref_type: page.ref_type ?? undefined,
+  locale,
+};
+const resolvedBlocks = await resolveBlocks(rawBlocks, ctx);
+
+const seo = getSeoMeta(page.id, locale);
+
+// Determine if this is a full-page registry render (single root block)
+// or a content page with mixed blocks
+const isRegistryPage = resolvedBlocks.length === 1 && resolvedBlocks[0]?.category !== "heading";
+---
+
+<BaseLayout
+  title={seo?.meta_title ?? page.content?.title ?? page.slug}
+  description={seo?.meta_description ?? page.content?.description}
+  canonical={seo?.canonical_url}
+  ogTitle={seo?.og_title}
+  ogDescription={seo?.og_description}
+  ogImage={seo?.og_image}
+  noindex={Boolean(seo?.noindex)}
+  nofollow={Boolean(seo?.nofollow)}
+>
+  {isRegistryPage
+    ? (
+      /* Registry component fills the full content area */
+      <div class="w-full">
+        {resolvedBlocks.map((block) => <BlockRenderer block={block} />)}
+      </div>
+    )
+    : (
+      /* Content page — constrained prose layout */
+      <article class="max-w-3xl mx-auto px-4 sm:px-6 lg:px-8 py-12">
+        {page.content && (
+          <header class="mb-8">
+            <h1 class="text-3xl sm:text-4xl font-bold tracking-tight mb-3">
+              {page.content.title}
+            </h1>
+            {page.content.description && (
+              <p class="text-lg text-muted-foreground">{page.content.description}</p>
+            )}
+          </header>
+        )}
+        <div class="space-y-4">
+          {resolvedBlocks.map((block) => <BlockRenderer block={block} />)}
+        </div>
+      </article>
+    )
+  }
+</BaseLayout>

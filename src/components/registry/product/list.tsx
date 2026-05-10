@@ -3,15 +3,46 @@ import { ProductCard } from "../../utils/product/ProductCard";
 import { cn } from "../../utils/product/format";
 import {
   defaultProductListCopy,
-  type Product,
+  type Product as UtilProduct,
   type ProductCardVariant,
   type ProductId,
   type ProductListCopy,
 } from "../../utils/product/types";
+import type { ProductItem } from "./types.js";
+
+// Adapter: canonical ProductItem → utils' Product (minor-unit prices)
+function toUtilProduct(item: ProductItem): UtilProduct {
+  return {
+    id:          item.id,
+    name:        item.name,
+    brand:       item.brand,
+    description: item.description,
+    image: {
+      src:         item.images[0]?.src ?? "",
+      alt:         item.images[0]?.alt ?? item.name,
+      aspectRatio: item.images[0]?.aspectRatio ?? 1,
+    },
+    price: {
+      amount:    Math.round(item.price.amount * 100),
+      compareAt: item.price.compareAt != null ? Math.round(item.price.compareAt * 100) : undefined,
+      currency:  item.price.currency,
+      locale:    item.price.locale,
+    },
+    rating:  item.rating != null && item.reviewCount != null
+               ? { value: item.rating, count: item.reviewCount } : undefined,
+    badges:  item.badges.map((b) => ({ kind: b.kind as UtilProduct["badges"][number]["kind"], label: b.label })),
+    stock:   item.stock.kind === "out-of-stock"   ? { kind: "out-of-stock" }
+           : item.stock.kind === "low-stock"      ? { kind: "low-stock",  remaining: item.stock.remaining }
+           : item.stock.kind === "preorder"        ? { kind: "preorder",   shipsOn: item.stock.shipsOn }
+           : { kind: "in-stock" },
+    swatches: item.swatches?.map((s) => ({ id: s.id, label: s.label, color: s.color ?? "" })),
+    href:    item.href,
+  };
+}
 
 export interface ProductListProps {
-  /** The products to render. */
-  readonly products: readonly Product[];
+  /** The products to render — accepts the canonical ProductItem contract. */
+  readonly products: readonly ProductItem[];
 
   /** Card layout variant. Defaults to "grid". */
   readonly variant?: ProductCardVariant;
@@ -85,7 +116,7 @@ function gridClasses(cols: ResponsiveColumns): string {
 }
 
 export function ProductList({
-  products,
+  products: rawProducts,
   variant = "grid",
   bordered = true,
   copy: copyOverride,
@@ -100,6 +131,9 @@ export function ProductList({
     () => ({ ...defaultProductListCopy, ...copyOverride }),
     [copyOverride]
   );
+
+  // Convert canonical ProductItem[] → utils' Product[]
+  const products = React.useMemo(() => rawProducts.map(toUtilProduct), [rawProducts]);
 
   const wishlist = wishlistedIds ?? EMPTY_SET;
   const cols = columns ?? DEFAULT_COLUMNS[variant];

@@ -6,59 +6,59 @@ import { Button } from "@/components/ui/button";
 import { Card, CardContent } from "@/components/ui/card";
 import { Tabs, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import { cn } from "@/lib/utils";
+import type { ProductItem } from "./types.js";
 
-// ─── Types ────────────────────────────────────────────────────────────────────
+// ─── Internal types (rendering layer — not part of the public contract) ───────
 
-export type ProductBadge = "new" | "sale" | "hot" | "limited" | "bestseller";
+type ProductBadge = "new" | "sale" | "hot" | "limited" | "bestseller";
 export type CardVariant =
-  | "default"
-  | "minimal"
-  | "editorial"
-  | "luxury"
-  | "neon"
-  | "retro"
-  | "magazine"
-  | "glass";
+  | "default" | "minimal" | "editorial" | "luxury"
+  | "neon" | "retro" | "magazine" | "glass";
 export type ViewMode = "grid" | "list" | "masonry";
 
-export interface ProductImage {
-  src: string;
-  alt: string;
-  hoverSrc?: string;
+interface ProductImage { src: string; alt: string; hoverSrc?: string; }
+interface ProductVariant { id: string; label: string; color?: string; inStock: boolean; }
+
+interface Product {
+  id: string; name: string; brand: string; description: string;
+  price: number; originalPrice?: number; currency: string;
+  images: ProductImage[]; badge?: ProductBadge;
+  rating: number; reviewCount: number;
+  variants?: ProductVariant[]; tags: string[];
+  isNew: boolean; inStock: boolean; freeShipping: boolean;
 }
 
-export interface ProductVariant {
-  id: string;
-  label: string;
-  color?: string;
-  inStock: boolean;
+// ─── Adapter: canonical ProductItem → internal Product ────────────────────────
+
+function fromItem(item: ProductItem): Product {
+  return {
+    id:            item.id,
+    name:          item.name,
+    brand:         item.brand ?? "",
+    description:   item.description ?? "",
+    price:         item.price.amount,
+    originalPrice: item.price.compareAt,
+    currency:      item.price.currency,
+    images:        item.images.map((img) => ({ src: img.src, alt: img.alt, hoverSrc: img.hoverSrc })),
+    badge:         item.badges[0]?.kind as ProductBadge | undefined,
+    rating:        item.rating ?? 0,
+    reviewCount:   item.reviewCount ?? 0,
+    variants:      item.swatches?.map((s) => ({ id: s.id, label: s.label, color: s.color, inStock: s.inStock })),
+    tags:          item.tags,
+    isNew:         item.isNew,
+    inStock:       item.stock.kind !== "out-of-stock",
+    freeShipping:  item.freeShipping,
+  };
 }
 
-export interface Product {
-  id: string;
-  name: string;
-  brand: string;
-  description: string;
-  price: number;
-  originalPrice?: number;
-  currency: string;
-  images: ProductImage[];
-  badge?: ProductBadge;
-  rating: number;
-  reviewCount: number;
-  variants?: ProductVariant[];
-  tags: string[];
-  isNew: boolean;
-  inStock: boolean;
-  freeShipping: boolean;
-}
+// ─── Public props — accepts the category contract ─────────────────────────────
 
 export interface ProductGridProps {
-  products: Product[];
+  products: ProductItem[];
   defaultVariant?: CardVariant;
-  onAddToCart?: (product: Product, variantId?: string) => void;
+  onAddToCart?: (product: ProductItem, variantId?: string) => void;
   onWishlistToggle?: (productId: string, wishlisted: boolean) => void;
-  onQuickView?: (product: Product) => void;
+  onQuickView?: (product: ProductItem) => void;
   className?: string;
 }
 
@@ -1320,13 +1320,21 @@ const ListCard: React.FC<{
 // ─── PRODUCT GRID ─────────────────────────────────────────────────────────────
 
 export const ProductGrid: React.FC<ProductGridProps> = ({
-  products,
+  products: rawProducts,
   defaultVariant = "default",
   onAddToCart,
   onWishlistToggle,
   onQuickView,
   className,
 }) => {
+  // Convert canonical ProductItem[] → internal Product[] for rendering
+  const products = React.useMemo(() => rawProducts.map(fromItem), [rawProducts]);
+  // Keep a ref to raw items for callbacks (so onAddToCart / onQuickView receive ProductItem)
+  const rawMap = React.useMemo(
+    () => new Map(rawProducts.map((p) => [p.id, p])),
+    [rawProducts]
+  );
+
   const [wishlist, setWishlist] = useState<Set<string>>(new Set());
   const [variant, setVariant] = useState<CardVariant>(defaultVariant);
   const [viewMode, setViewMode] = useState<ViewMode>("grid");
@@ -1346,18 +1354,18 @@ export const ProductGrid: React.FC<ProductGridProps> = ({
 
   const handleAddToCart = useCallback(
     (product: Product, variantId?: string) => {
-      onAddToCart?.(product, variantId);
+      onAddToCart?.(rawMap.get(product.id)!, variantId);
       setCartNotification(product.name);
       setTimeout(() => setCartNotification(null), 2500);
     },
-    [onAddToCart]
+    [onAddToCart, rawMap]
   );
 
   const handleQuickView = useCallback(
     (product: Product) => {
-      onQuickView?.(product);
+      onQuickView?.(rawMap.get(product.id)!);
     },
-    [onQuickView]
+    [onQuickView, rawMap]
   );
 
   const cardProps = (product: Product) => ({

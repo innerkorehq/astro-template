@@ -1,0 +1,66 @@
+---
+/**
+ * BlockRenderer — renders a single ResolvedBlock by dispatching to the
+ * correct registry component based on category/variant.
+ *
+ * Add new categories/variants here as the registry grows.
+ */
+import type { ResolvedBlock } from "@/lib/blocks/types";
+import type { ProductBlockData } from "@/lib/blocks/resolvers/product";
+import ProductGrid from "@/components/registry/product/grid";
+import { ProductList } from "@/components/registry/product/list";
+import { ProductDetailPage } from "@/components/registry/product/detail";
+
+interface Props {
+  block: ResolvedBlock;
+}
+
+const { block } = Astro.props;
+const { category, variant, data, attrs } = block;
+---
+
+{/* ── Product category ──────────────────────────────────────────────────── */}
+
+{category === "product" && variant === "grid" && (
+  <ProductGrid
+    client:load
+    products={(data as ProductBlockData).products}
+    defaultVariant={(attrs.card_variant as string | undefined) ?? "default"}
+    onQuickView={(p) => { window.location.href = `/products/${p.id}`; }}
+  />
+)}
+
+{category === "product" && variant === "list" && (
+  <ProductList
+    client:load
+    products={(data as ProductBlockData).products}
+    variant={(attrs.variant as "grid" | "horizontal" | undefined) ?? "grid"}
+    bordered={(attrs.bordered as boolean | undefined) ?? true}
+  />
+)}
+
+{category === "product" && variant === "detail" && (data as ProductBlockData).product && (
+  <ProductDetailPage
+    client:load
+    product={(data as ProductBlockData).product!}
+    variant={(attrs.variant as "classic" | "editorial" | "sticky" | "split" | undefined) ?? "classic"}
+    onAddToCart={async ({ variantId, quantity }) => {
+      console.log("Add to cart:", variantId, "×", quantity);
+    }}
+    onBuyNow={({ variantId, quantity }) => {
+      console.log("Buy now:", variantId, "×", quantity);
+    }}
+  />
+)}
+
+{/* ── Primitive / content blocks ───────────────────────────────────────── */}
+
+{category === "heading" && (
+  <Fragment set:html={`<h${(attrs.level as number) ?? 2} class="font-bold tracking-tight mt-8 mb-3">${(data as { content?: string }).content ?? ""}</h${(attrs.level as number) ?? 2}>`} />
+)}
+
+{category === "paragraph" && (
+  <p class="leading-7 mb-4">{(data as { content?: string }).content}</p>
+)}
+
+{category === "divider" && <hr class="border-border my-8" />}

@@ -1,0 +1,83 @@
+---
+import { getMenu } from '@/db/index';
+
+interface Props {
+  handle?: string;
+}
+
+const { handle = 'primary-nav' } = Astro.props;
+const menu        = getMenu(handle);
+const currentPath = new URL(Astro.request.url).pathname;
+const site        = Astro.locals.siteConfig;
+
+function href(item: NonNullable<typeof menu>['items'][number]): string {
+  return item.url ?? item.page_path ?? '#';
+}
+
+function active(item: NonNullable<typeof menu>['items'][number]): boolean {
+  const h = href(item);
+  return h === '/' ? currentPath === '/' : currentPath.startsWith(h);
+}
+---
+
+{menu && (
+  <header class="sticky top-0 z-40 bg-background/80 backdrop-blur-lg border-b border-border">
+    <div class="max-w-5xl mx-auto px-4 sm:px-6 lg:px-8">
+      <div class="flex items-center justify-between h-14">
+
+        <a href="/" class="text-sm font-semibold text-foreground tracking-tight">
+          {site.name}
+        </a>
+
+        <nav aria-label={menu.name}>
+          <ul class="flex items-center gap-1">
+            {menu.items.map((item) => (
+              <li class="relative group">
+                <a
+                  href={href(item)}
+                  target={item.open_in_new_tab ? '_blank' : undefined}
+                  rel={item.is_external ? 'noopener noreferrer' : undefined}
+                  aria-current={active(item) ? 'page' : undefined}
+                  class:list={[
+                    'inline-flex items-center gap-1 px-3 py-1.5 rounded-md text-sm font-medium transition-colors',
+                    active(item)
+                      ? 'bg-accent text-accent-foreground'
+                      : 'text-muted-foreground hover:text-foreground hover:bg-accent/60',
+                    item.is_cta && '!bg-primary !text-primary-foreground hover:!bg-primary/90 ml-2',
+                  ]}
+                >
+                  {item.icon && <span aria-hidden="true">{item.icon}</span>}
+                  {item.label}
+                  {item.badge && (
+                    <span
+                      class="text-[10px] font-bold px-1.5 py-0.5 rounded-full"
+                      style={item.badge_color ? `background:${item.badge_color};color:#fff` : ''}
+                    >
+                      {item.badge}
+                    </span>
+                  )}
+                </a>
+
+                {item.children.length > 0 && (
+                  <ul class="absolute top-full left-0 mt-1 w-44 rounded-lg border border-border bg-background shadow-lg py-1 hidden group-hover:block">
+                    {item.children.map((child) => (
+                      <li>
+                        <a
+                          href={href(child)}
+                          class="block px-3 py-1.5 text-sm text-muted-foreground hover:text-foreground hover:bg-accent/60 transition-colors"
+                        >
+                          {child.label}
+                        </a>
+                      </li>
+                    ))}
+                  </ul>
+                )}
+              </li>
+            ))}
+          </ul>
+        </nav>
+
+      </div>
+    </div>
+  </header>
+)}
