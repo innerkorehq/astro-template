@@ -7,8 +7,40 @@
  */
 import type { ResolvedBlock } from "@/lib/blocks/types";
 import type { HeaderBlockData } from "@/components/utils/header/types";
+import type { FooterBlockData } from "@/components/utils/footer/types";
 import type { ProductBlockData } from "@/lib/blocks/resolvers/product";
 import { HeaderDefault } from "@/components/registry/header/default";
+import { FooterDefault } from "@/components/registry/footer/default";
+import type { HeroBlockData } from "@/components/utils/hero/types";
+import { HeroDefault } from "@/components/registry/hero/default";
+import type { BannerBlockData } from "@/components/utils/banner/types";
+import { BannerDefault } from "@/components/registry/banner/default";
+import type { FeatureBlockData } from "@/components/utils/feature/types";
+import { FeatureDefault } from "@/components/registry/feature/default";
+import type { FaqBlockData } from "@/components/utils/faq/types";
+import { FaqDefault } from "@/components/registry/faq/default";
+import type { TestimonialBlockData } from "@/components/utils/testimonial/types";
+import { TestimonialDefault } from "@/components/registry/testimonial/default";
+import type { TeamBlockData } from "@/components/utils/team/types";
+import { TeamDefault } from "@/components/registry/team/default";
+import type { BlogCardBlockData } from "@/components/utils/blog-card/types";
+import { BlogCardDefault } from "@/components/registry/blog-card/default";
+import type { ArticleBodyBlockData } from "@/components/utils/article-body/types";
+import { ArticleBodyDefault } from "@/components/registry/article-body/default";
+import type { NewsletterBlockData } from "@/components/utils/newsletter/types";
+import { NewsletterDefault } from "@/components/registry/newsletter/default";
+import type { CtaBlockData } from "@/components/utils/cta/types";
+import { CtaDefault } from "@/components/registry/cta/default";
+import type { ContactBlockData } from "@/components/utils/contact/types";
+import { ContactDefault } from "@/components/registry/contact/default";
+import type { MapBlockData } from "@/components/utils/map/types";
+import { MapDefault } from "@/components/registry/map/default";
+import type { CommentBlockData } from "@/components/utils/comment/types";
+import { CommentDefault } from "@/components/registry/comment/default";
+import type { RelatedPostsBlockData } from "@/components/utils/related-posts/types";
+import { RelatedPostsDefault } from "@/components/registry/related-posts/default";
+import type { AnnouncementBlockData } from "@/components/utils/announcement/types";
+import { AnnouncementDefault } from "@/components/registry/announcement/default";
 import ProductGrid from "@/components/registry/product/grid";
 import { ProductList } from "@/components/registry/product/list";
 import { ProductDetailPage } from "@/components/registry/product/detail";
@@ -25,6 +57,102 @@ const { category, variant, data, attrs } = block;
 
 {category === "header" && (variant === "default" || variant === "centered" || variant === "stacked") && (
   <HeaderDefault data={data as HeaderBlockData} />
+)}
+
+{/* ── Footer category ───────────────────────────────────────────────────── */}
+
+{category === "footer" && variant === "default" && (
+  <FooterDefault data={data as FooterBlockData} />
+)}
+
+{/* ── Hero category ───────────────────────────────────────────────────── */}
+
+{category === "hero" && (variant === "default" || !variant) && (
+  <HeroDefault data={data as HeroBlockData} />
+)}
+
+{/* ── Banner category ───────────────────────────────────────────────────── */}
+
+{category === "banner" && (variant === "default" || !variant) && (
+  <BannerDefault data={data as BannerBlockData} />
+)}
+
+{/* ── Feature category ───────────────────────────────────────────────────── */}
+
+{category === "feature" && (variant === "default" || !variant) && (
+  <FeatureDefault data={data as FeatureBlockData} />
+)}
+
+{/* ── Faq category ───────────────────────────────────────────────────── */}
+
+{category === "faq" && (variant === "default" || !variant) && (
+  <FaqDefault data={data as FaqBlockData} />
+)}
+
+{/* ── Testimonial category ───────────────────────────────────────────────────── */}
+
+{category === "testimonial" && (variant === "default" || !variant) && (
+  <TestimonialDefault data={data as TestimonialBlockData} />
+)}
+
+{/* ── Team category ───────────────────────────────────────────────────── */}
+
+{category === "team" && (variant === "default" || !variant) && (
+  <TeamDefault data={data as TeamBlockData} />
+)}
+
+{/* ── BlogCard category ───────────────────────────────────────────────────── */}
+
+{category === "blog-card" && (variant === "default" || !variant) && (
+  <BlogCardDefault data={data as BlogCardBlockData} />
+)}
+
+{/* ── ArticleBody category ───────────────────────────────────────────────────── */}
+
+{category === "article-body" && (variant === "default" || !variant) && (
+  <ArticleBodyDefault data={data as ArticleBodyBlockData} />
+)}
+
+{/* ── Newsletter category ───────────────────────────────────────────────────── */}
+
+{category === "newsletter" && (variant === "default" || !variant) && (
+  <NewsletterDefault data={data as NewsletterBlockData} />
+)}
+
+{/* ── Cta category ───────────────────────────────────────────────────── */}
+
+{category === "cta" && (variant === "default" || !variant) && (
+  <CtaDefault data={data as CtaBlockData} />
+)}
+
+{/* ── Contact category ───────────────────────────────────────────────────── */}
+
+{category === "contact" && (variant === "default" || !variant) && (
+  <ContactDefault data={data as ContactBlockData} />
+)}
+
+{/* ── Map category ───────────────────────────────────────────────────── */}
+
+{category === "map" && (variant === "default" || !variant) && (
+  <MapDefault data={data as MapBlockData} />
+)}
+
+{/* ── Comment category ───────────────────────────────────────────────────── */}
+
+{category === "comment" && (variant === "default" || !variant) && (
+  <CommentDefault data={data as CommentBlockData} />
+)}
+
+{/* ── RelatedPosts category ───────────────────────────────────────────────────── */}
+
+{category === "related-posts" && (variant === "default" || !variant) && (
+  <RelatedPostsDefault data={data as RelatedPostsBlockData} />
+)}
+
+{/* ── Announcement category ───────────────────────────────────────────────────── */}
+
+{category === "announcement" && (variant === "default" || !variant) && (
+  <AnnouncementDefault data={data as AnnouncementBlockData} />
 )}
 
 {/* ── Product category ──────────────────────────────────────────────────── */}
