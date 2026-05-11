@@ -1,2 +1,7 @@
+import { db } from 'astro:db';
+
 // No seed data — all content is authored through the authoring layer.
-// This file is required by @astrojs/db but intentionally empty.
+export default async function seed() {
+  // intentionally empty
+  void db; // satisfies the import
+}
