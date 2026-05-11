@@ -185,3 +185,5 @@ function DefaultEmptyState(): React.ReactElement {
     </div>
   );
 }
+
+export default ProductList;

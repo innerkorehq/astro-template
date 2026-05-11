@@ -257,3 +257,5 @@ export function ProductDetailPage({
     </article>
   );
 }
+
+export default ProductDetailPage;
