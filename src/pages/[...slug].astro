@@ -31,6 +31,7 @@ const rawBlocks = (page.content?.body ?? []) as Block[];
 const ctx = {
   page_ref_id:   page.ref_id   ?? undefined,
   page_ref_type: page.ref_type ?? undefined,
+  currentPath:   path,
   locale,
 };
 const resolvedBlocks = await resolveBlocks(rawBlocks, ctx);

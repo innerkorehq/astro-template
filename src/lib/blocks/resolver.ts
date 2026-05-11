@@ -9,6 +9,7 @@
 
 import type { Block, BlockContext, ResolvedBlock } from './types.js';
 import { resolveProductBlock } from './resolvers/product.js';
+import { resolveHeaderBlock } from './resolvers/header.js';
 
 export async function resolveBlock(
   block: Block,
@@ -17,6 +18,9 @@ export async function resolveBlock(
   const [category, variant = 'default'] = block.type.split('/');
 
   switch (category) {
+    case 'header':
+      return resolveHeaderBlock(block, ctx);
+
     case 'product':
       return resolveProductBlock(block, ctx);
 

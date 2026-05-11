@@ -6,7 +6,9 @@
  * Add new categories/variants here as the registry grows.
  */
 import type { ResolvedBlock } from "@/lib/blocks/types";
+import type { HeaderBlockData } from "@/components/utils/header/types";
 import type { ProductBlockData } from "@/lib/blocks/resolvers/product";
+import { HeaderDefault } from "@/components/registry/header/default";
 import ProductGrid from "@/components/registry/product/grid";
 import { ProductList } from "@/components/registry/product/list";
 import { ProductDetailPage } from "@/components/registry/product/detail";
@@ -18,6 +20,12 @@ interface Props {
 const { block } = Astro.props;
 const { category, variant, data, attrs } = block;
 ---
+
+{/* ── Header category ───────────────────────────────────────────────────── */}
+
+{category === "header" && (variant === "default" || variant === "centered" || variant === "stacked") && (
+  <HeaderDefault data={data as HeaderBlockData} />
+)}
 
 {/* ── Product category ──────────────────────────────────────────────────── */}
 

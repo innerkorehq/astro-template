@@ -29,5 +29,6 @@ export interface ResolvedBlock<TData = unknown> {
 export interface BlockContext {
   page_ref_id?:   string;   // page.ref_id (e.g. product slug)
   page_ref_type?: string;   // page.ref_type (e.g. 'product')
+  currentPath?:   string;   // current page path for active navigation states
   locale:         string;
 }
