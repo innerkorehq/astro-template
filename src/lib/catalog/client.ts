@@ -1,288 +1,252 @@
 /**
  * src/lib/catalog/client.ts
- *
- * Direct query helpers for catalog tables that are NOT Astro content
- * collections: catalog_config, cart, orders, inquiry.
- *
- * Products, categories, and services are accessed via getCollection()
- * from astro:content (see content.config.ts).
+ * Direct query helpers for transactional catalog tables (cart, orders, inquiry,
+ * catalog_config). All async — uses @astrojs/db (Drizzle / libsql).
  */
 
-import { getDb } from '../../db/client.js';
+import {
+  db,
+  CatalogConfig, Cart, CartItem as CartItemTable, Orders, OrderItem, Inquiry, InquiryItem,
+  eq, and, asc, desc,
+} from 'astro:db';
+
 import type {
-  Cart, CartItem, CartTotals, AppliedDiscount,
-  CatalogConfig, Inquiry, InquiryItem,
-  InquiryStatus, Order, OrderItem, OrderStatus,
+  CatalogConfig as CatalogConfigType,
+  Cart as CartType, CartItem, CartTotals,
+  Order, OrderItem as OrderItemType, OrderStatus,
+  Inquiry as InquiryType, InquiryItem as InquiryItemType, InquiryStatus,
 } from './types.js';
 
-// ── JSON helper ───────────────────────────────────────────────────────────────
+// ── Helpers ───────────────────────────────────────────────────────────────────
 
-function j<T>(raw: unknown, fallback: T): T {
-  if (raw == null) return fallback;
-  try { return JSON.parse(String(raw)) as T; } catch { return fallback; }
-}
-
-// ── catalog_config ────────────────────────────────────────────────────────────
-
-function mapCatalogConfig(row: Record<string, unknown>): CatalogConfig {
+function mapCatalogConfig(row: typeof CatalogConfig.$inferSelect): CatalogConfigType {
   return {
-    ...(row as unknown as CatalogConfig),
-    supported_currencies: j(row.supported_currencies, ['INR']),
-    business:             j(row.business,             {}),
-    branding:             j(row.branding,             {}),
-    contact:              j(row.contact,              {}),
-    social:               j(row.social,               {}),
-    features:             j(row.features,             {}),
-    shipping_zones:       j(row.shipping_zones,       []),
-    tax_profiles:         j(row.tax_profiles,         []),
-    seo:                  j(row.seo,                  {}),
-    meta:                 j(row.meta,                 {}),
+    ...(row as unknown as CatalogConfigType),
+    supported_currencies: (row.supported_currencies as string[]) ?? ['INR'],
+    business:             (row.business  as Record<string, unknown>) ?? {},
+    branding:             (row.branding  as Record<string, unknown>) ?? {},
+    contact:              (row.contact   as Record<string, unknown>) ?? {},
+    social:               (row.social    as Record<string, unknown>) ?? {},
+    features:             (row.features  as Record<string, unknown>) ?? {},
+    shipping_zones:       (row.shipping_zones as unknown[]) ?? [],
+    tax_profiles:         (row.tax_profiles  as unknown[]) ?? [],
+    seo:                  (row.seo       as Record<string, unknown>) ?? {},
+    meta:                 (row.meta      as Record<string, unknown>) ?? {},
   };
 }
 
-/** Returns the single catalog_config row, or null if not seeded. */
-export function getCatalogConfig(): CatalogConfig | null {
-  const row = getDb()
-    .prepare("SELECT * FROM catalog_config WHERE id = 'main'")
-    .get() as Record<string, unknown> | undefined;
-  return row ? mapCatalogConfig(row) : null;
-}
-
-// ── Cart helpers ──────────────────────────────────────────────────────────────
-
-function mapCartItem(row: Record<string, unknown>): CartItem {
+function mapCartItem(row: typeof CartItemTable.$inferSelect): CartItem {
   return {
     ...(row as unknown as CartItem),
-    custom_options: j(row.custom_options, {}),
+    tax_inclusive:  Number(row.tax_inclusive),
+    custom_options: (row.custom_options as Record<string, unknown>) ?? {},
   };
 }
 
-/** Returns a cart with its items, or null. */
-export function getCart(id: string): Cart | null {
-  const db   = getDb();
-  const cart = db.prepare('SELECT * FROM cart WHERE id = ?').get(id) as Record<string, unknown> | undefined;
-  if (!cart) return null;
-  const items = (db.prepare('SELECT * FROM cart_item WHERE cart_id = ? ORDER BY created_at ASC').all(id) as Record<string, unknown>[]).map(mapCartItem);
+function mapOrder(row: typeof Orders.$inferSelect, items: OrderItemType[]): Order {
   return {
-    ...(cart as unknown as Cart),
-    meta: j(cart.meta, {}),
+    ...(row as unknown as Order),
+    contact:           (row.contact           as Record<string, unknown> | null) ?? null,
+    billing_address:   (row.billing_address   as Record<string, unknown> | null) ?? null,
+    shipping_address:  (row.shipping_address  as Record<string, unknown> | null) ?? null,
+    totals:            (row.totals            as CartTotals) ?? {} as CartTotals,
+    applied_discounts: (row.applied_discounts as unknown[]) ?? [],
+    shipping_method:   (row.shipping_method   as Record<string, unknown> | null) ?? null,
+    payment:           (row.payment           as Order['payment']) ?? null,
+    meta:              (row.meta              as Record<string, unknown>) ?? {},
     items,
   };
 }
 
-/** Returns the active cart for a customer or session, or null. */
-export function getActiveCart(opts: { customer_id?: string; session_id?: string }): Cart | null {
-  const db = getDb();
-  let row: Record<string, unknown> | undefined;
-  if (opts.customer_id) {
-    row = db.prepare("SELECT * FROM cart WHERE customer_id = ? AND status = 'active' ORDER BY updated_at DESC LIMIT 1").get(opts.customer_id) as Record<string, unknown> | undefined;
-  } else if (opts.session_id) {
-    row = db.prepare("SELECT * FROM cart WHERE session_id = ? AND status = 'active' ORDER BY updated_at DESC LIMIT 1").get(opts.session_id) as Record<string, unknown> | undefined;
-  }
-  return row ? getCart(String(row.id)) : null;
+function mapInquiry(row: typeof Inquiry.$inferSelect, items: InquiryItemType[]): InquiryType {
+  return {
+    ...(row as unknown as InquiryType),
+    contact:      (row.contact      as Record<string, unknown>) ?? {},
+    address:      (row.address      as Record<string, unknown> | null) ?? null,
+    requirements: (row.requirements as Record<string, unknown>) ?? {},
+    meta:         (row.meta         as Record<string, unknown>) ?? {},
+    items,
+  };
 }
 
-/** Creates a new cart and returns it. */
-export function createCart(data: { customer_id?: string; session_id?: string; currency?: string }): Cart {
+// ── CatalogConfig ─────────────────────────────────────────────────────────────
+
+export async function getCatalogConfig(): Promise<CatalogConfigType | null> {
+  const rows = await db.select().from(CatalogConfig).where(eq(CatalogConfig.id, 'main'));
+  return rows[0] ? mapCatalogConfig(rows[0]) : null;
+}
+
+// ── Cart ──────────────────────────────────────────────────────────────────────
+
+export async function getCart(id: string): Promise<CartType | null> {
+  const carts = await db.select().from(Cart).where(eq(Cart.id, id));
+  const cart = carts[0];
+  if (!cart) return null;
+  const items = (await db.select().from(CartItemTable)
+    .where(eq(CartItemTable.cart_id, id))
+    .orderBy(asc(CartItemTable.created_at))).map(mapCartItem);
+  return { ...(cart as unknown as CartType), meta: (cart.meta as Record<string, unknown>) ?? {}, items };
+}
+
+export async function getActiveCart(opts: { customer_id?: string; session_id?: string }): Promise<CartType | null> {
+  const carts = opts.customer_id
+    ? await db.select().from(Cart).where(and(eq(Cart.customer_id, opts.customer_id), eq(Cart.status, 'active')))
+    : opts.session_id
+    ? await db.select().from(Cart).where(and(eq(Cart.session_id, opts.session_id), eq(Cart.status, 'active')))
+    : [];
+  return carts[0] ? getCart(carts[0].id) : null;
+}
+
+export async function createCart(data: { customer_id?: string; session_id?: string; currency?: string }): Promise<CartType> {
   const id = crypto.randomUUID();
-  getDb().prepare(
-    'INSERT INTO cart (id, customer_id, session_id, currency) VALUES (?, ?, ?, ?)'
-  ).run(id, data.customer_id ?? null, data.session_id ?? null, data.currency ?? 'INR');
-  return getCart(id)!;
+  await db.insert(Cart).values({
+    id,
+    customer_id: data.customer_id ?? null,
+    session_id:  data.session_id  ?? null,
+    currency:    data.currency    ?? 'INR',
+    status:      'active',
+  });
+  return getCart(id) as Promise<CartType>;
 }
 
-/** Adds an item to a cart (merges quantity if ref_id + variant_id match). */
-export function addCartItem(
+export async function addCartItem(
   cartId: string,
   item: Omit<CartItem, 'id' | 'cart_id' | 'created_at'>
-): CartItem {
-  const db = getDb();
-  const existing = db
-    .prepare('SELECT * FROM cart_item WHERE cart_id = ? AND ref_id = ? AND variant_id IS ?')
-    .get(cartId, item.ref_id, item.variant_id ?? null) as Record<string, unknown> | undefined;
-
-  if (existing) {
-    const newQty = Number(existing.quantity) + item.quantity;
-    db.prepare('UPDATE cart_item SET quantity = ? WHERE id = ?').run(newQty, existing.id);
-    db.prepare('UPDATE cart SET updated_at = datetime(\'now\') WHERE id = ?').run(cartId);
-    return mapCartItem({ ...existing, quantity: newQty });
+): Promise<CartItem> {
+  const existing = await db.select().from(CartItemTable)
+    .where(and(eq(CartItemTable.cart_id, cartId), eq(CartItemTable.ref_id, item.ref_id)));
+  if (existing[0]) {
+    const newQty = existing[0].quantity + item.quantity;
+    await db.update(CartItemTable).set({ quantity: newQty }).where(eq(CartItemTable.id, existing[0].id));
+    await db.update(Cart).set({ updated_at: new Date().toISOString() }).where(eq(Cart.id, cartId));
+    return mapCartItem({ ...existing[0], quantity: newQty });
   }
-
   const id = crypto.randomUUID();
-  db.prepare(`
-    INSERT INTO cart_item (id, cart_id, item_type, ref_id, variant_id, package_id, name,
-      image_url, sku, slug, unit_price, compare_at, currency, quantity, tax_rate,
-      tax_inclusive, custom_options, note)
-    VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
-  `).run(
-    id, cartId, item.item_type, item.ref_id, item.variant_id ?? null,
-    item.package_id ?? null, item.name, item.image_url ?? null,
-    item.sku ?? null, item.slug ?? null, item.unit_price,
-    item.compare_at ?? null, item.currency, item.quantity,
-    item.tax_rate, item.tax_inclusive ? 1 : 0,
-    JSON.stringify(item.custom_options ?? {}), item.note ?? null,
-  );
-  db.prepare('UPDATE cart SET updated_at = datetime(\'now\') WHERE id = ?').run(cartId);
+  await db.insert(CartItemTable).values({
+    id, cart_id: cartId,
+    item_type:     item.item_type,
+    ref_id:        item.ref_id,
+    variant_id:    item.variant_id    ?? null,
+    package_id:    item.package_id    ?? null,
+    name:          item.name,
+    image_url:     item.image_url     ?? null,
+    sku:           item.sku           ?? null,
+    slug:          item.slug          ?? null,
+    unit_price:    item.unit_price,
+    compare_at:    item.compare_at    ?? null,
+    currency:      item.currency,
+    quantity:      item.quantity,
+    tax_rate:      item.tax_rate,
+    tax_inclusive: item.tax_inclusive ? true : false,
+    custom_options: item.custom_options ?? null,
+    note:          item.note          ?? null,
+  });
+  await db.update(Cart).set({ updated_at: new Date().toISOString() }).where(eq(Cart.id, cartId));
   return { ...item, id, cart_id: cartId, created_at: new Date().toISOString() };
 }
 
-/** Updates the quantity of a cart item. Pass 0 to remove. */
-export function updateCartItemQty(itemId: string, qty: number): void {
-  const db = getDb();
+export async function updateCartItemQty(itemId: string, qty: number): Promise<void> {
   if (qty <= 0) {
-    db.prepare('DELETE FROM cart_item WHERE id = ?').run(itemId);
+    await db.delete(CartItemTable).where(eq(CartItemTable.id, itemId));
   } else {
-    db.prepare('UPDATE cart_item SET quantity = ? WHERE id = ?').run(qty, itemId);
+    await db.update(CartItemTable).set({ quantity: qty }).where(eq(CartItemTable.id, itemId));
   }
 }
 
-/** Removes a cart item by id. */
-export function removeCartItem(itemId: string): void {
-  getDb().prepare('DELETE FROM cart_item WHERE id = ?').run(itemId);
+export async function removeCartItem(itemId: string): Promise<void> {
+  await db.delete(CartItemTable).where(eq(CartItemTable.id, itemId));
 }
 
-/** Computes cart totals in JS (avoids storing stale aggregates). */
-export function computeCartTotals(cart: Cart): CartTotals {
+export function computeCartTotals(cart: CartType): CartTotals {
   const items = cart.items ?? [];
   let subtotal = 0, tax = 0;
   for (const item of items) {
     const lineTotal = item.unit_price * item.quantity;
     subtotal += lineTotal;
-    if (item.tax_inclusive) {
-      tax += lineTotal - lineTotal / (1 + item.tax_rate / 100);
-    } else {
-      tax += lineTotal * item.tax_rate / 100;
-    }
+    tax += item.tax_inclusive
+      ? lineTotal - lineTotal / (1 + item.tax_rate / 100)
+      : lineTotal * item.tax_rate / 100;
   }
-  const regularItems = items.filter((i) => i.item_type !== 'fee' && i.item_type !== 'discount');
+  const regular = items.filter((i) => i.item_type !== 'fee' && i.item_type !== 'discount');
   return {
-    subtotal,
-    discount_amount: 0,
-    shipping_amount: 0,
+    subtotal, discount_amount: 0, shipping_amount: 0,
     tax_amount: Math.round(tax * 100) / 100,
-    total: subtotal,
-    currency: cart.currency,
-    items_count: regularItems.length,
-    units_count: regularItems.reduce((s, i) => s + i.quantity, 0),
+    total: subtotal, currency: cart.currency as CartTotals['currency'],
+    items_count: regular.length,
+    units_count: regular.reduce((s, i) => s + i.quantity, 0),
   };
 }
 
-// ── Order helpers ─────────────────────────────────────────────────────────────
+// ── Orders ────────────────────────────────────────────────────────────────────
 
-function mapOrderItem(row: Record<string, unknown>): OrderItem {
-  return {
-    ...(row as unknown as OrderItem),
-    custom_options: j(row.custom_options, {}),
-  };
+export async function getOrder(id: string): Promise<Order | null> {
+  const orders = await db.select().from(Orders).where(eq(Orders.id, id));
+  const order = orders[0];
+  if (!order) return null;
+  const items = (await db.select().from(OrderItem).where(eq(OrderItem.order_id, id))) as unknown as OrderItemType[];
+  return mapOrder(order, items);
 }
 
-function mapOrder(row: Record<string, unknown>, items: OrderItem[]): Order {
-  return {
-    ...(row as unknown as Order),
-    contact:           j(row.contact,           null),
-    billing_address:   j(row.billing_address,   null),
-    shipping_address:  j(row.shipping_address,  null),
-    totals:            j(row.totals,            {} as CartTotals),
-    applied_discounts: j(row.applied_discounts, []),
-    shipping_method:   j(row.shipping_method,   null),
-    payment:           j(row.payment,           null),
-    meta:              j(row.meta,              {}),
-    items,
-  };
+export async function getOrderByNumber(orderNumber: string): Promise<Order | null> {
+  const orders = await db.select().from(Orders).where(eq(Orders.order_number, orderNumber));
+  return orders[0] ? getOrder(orders[0].id) : null;
 }
 
-/** Returns an order with its items, or null. */
-export function getOrder(id: string): Order | null {
-  const db  = getDb();
-  const row = db.prepare('SELECT * FROM orders WHERE id = ?').get(id) as Record<string, unknown> | undefined;
+export async function listOrders(opts: { customer_id?: string; status?: OrderStatus; limit?: number } = {}): Promise<Order[]> {
+  const conditions = [];
+  if (opts.customer_id) conditions.push(eq(Orders.customer_id, opts.customer_id));
+  if (opts.status)      conditions.push(eq(Orders.status, opts.status));
+  const rows = await db.select().from(Orders)
+    .where(conditions.length ? and(...conditions) : undefined)
+    .orderBy(desc(Orders.created_at))
+    .limit(opts.limit ?? 50);
+  return Promise.all(rows.map((r) => getOrder(r.id) as Promise<Order>));
+}
+
+// ── Inquiry ───────────────────────────────────────────────────────────────────
+
+export async function getInquiry(id: string): Promise<InquiryType | null> {
+  const rows = await db.select().from(Inquiry).where(eq(Inquiry.id, id));
+  const row = rows[0];
   if (!row) return null;
-  const items = (db.prepare('SELECT * FROM order_item WHERE order_id = ?').all(id) as Record<string, unknown>[]).map(mapOrderItem);
-  return mapOrder(row, items);
-}
-
-/** Returns an order by its human-readable order number. */
-export function getOrderByNumber(orderNumber: string): Order | null {
-  const row = getDb().prepare('SELECT * FROM orders WHERE order_number = ?').get(orderNumber) as Record<string, unknown> | undefined;
-  return row ? getOrder(String(row.id)) : null;
-}
-
-/** Lists orders, optionally filtered by customer or status. */
-export function listOrders(opts: { customer_id?: string; status?: OrderStatus; limit?: number } = {}): Order[] {
-  const db = getDb();
-  const wheres: string[] = [];
-  const params: unknown[] = [];
-  if (opts.customer_id) { wheres.push('customer_id = ?'); params.push(opts.customer_id); }
-  if (opts.status)      { wheres.push('status = ?');       params.push(opts.status); }
-  const where = wheres.length ? `WHERE ${wheres.join(' AND ')}` : '';
-  const rows  = db.prepare(`SELECT * FROM orders ${where} ORDER BY created_at DESC LIMIT ${opts.limit ?? 50}`).all(...params) as Record<string, unknown>[];
-  return rows.map((row) => {
-    const items = (db.prepare('SELECT * FROM order_item WHERE order_id = ?').all(String(row.id)) as Record<string, unknown>[]).map(mapOrderItem);
-    return mapOrder(row, items);
-  });
-}
-
-// ── Inquiry helpers ───────────────────────────────────────────────────────────
-
-function mapInquiry(row: Record<string, unknown>, items: InquiryItem[]): Inquiry {
-  return {
-    ...(row as unknown as Inquiry),
-    contact:      j(row.contact,      {}),
-    address:      j(row.address,      null),
-    requirements: j(row.requirements, {}),
-    meta:         j(row.meta,         {}),
-    items,
-  };
-}
-
-/** Returns an inquiry with its items, or null. */
-export function getInquiry(id: string): Inquiry | null {
-  const db  = getDb();
-  const row = db.prepare('SELECT * FROM inquiry WHERE id = ?').get(id) as Record<string, unknown> | undefined;
-  if (!row) return null;
-  const items = db.prepare('SELECT * FROM inquiry_item WHERE inquiry_id = ?').all(id) as InquiryItem[];
+  const items = (await db.select().from(InquiryItem).where(eq(InquiryItem.inquiry_id, id))) as unknown as InquiryItemType[];
   return mapInquiry(row, items);
 }
 
-/** Creates a new inquiry and returns it. */
-export function createInquiry(
-  data: Pick<Inquiry, 'contact' | 'message' | 'budget' | 'timeline' | 'source'> & {
-    company?: string;
-    gstin?: string;
-    currency?: string;
-    items?: Array<Pick<InquiryItem, 'ref_type' | 'ref_id' | 'name' | 'quantity' | 'note'>>;
-  }
-): Inquiry {
-  const db = getDb();
+export async function createInquiry(data: Pick<InquiryType, 'contact' | 'message' | 'budget' | 'timeline' | 'source'> & {
+  company?: string; gstin?: string; currency?: string;
+  items?: Array<Pick<InquiryItemType, 'ref_type' | 'ref_id' | 'name' | 'quantity' | 'note'>>;
+}): Promise<InquiryType> {
   const id = crypto.randomUUID();
-  db.prepare(`
-    INSERT INTO inquiry (id, company, gstin, message, budget, timeline, source, currency, contact)
-    VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?)
-  `).run(
-    id, data.company ?? null, data.gstin ?? null, data.message ?? null,
-    data.budget ?? null, data.timeline ?? null, data.source ?? null,
-    data.currency ?? 'INR', JSON.stringify(data.contact ?? {}),
-  );
-  for (const item of data.items ?? []) {
-    db.prepare(
-      'INSERT INTO inquiry_item (id, inquiry_id, ref_type, ref_id, name, quantity, note) VALUES (?, ?, ?, ?, ?, ?, ?)'
-    ).run(crypto.randomUUID(), id, item.ref_type, item.ref_id, item.name, item.quantity ?? null, item.note ?? null);
-  }
-  return getInquiry(id)!;
-}
-
-/** Lists inquiries filtered by status. */
-export function listInquiries(status?: InquiryStatus, limit = 50): Inquiry[] {
-  const db   = getDb();
-  const rows = status
-    ? db.prepare('SELECT * FROM inquiry WHERE status = ? ORDER BY created_at DESC LIMIT ?').all(status, limit)
-    : db.prepare('SELECT * FROM inquiry ORDER BY created_at DESC LIMIT ?').all(limit);
-  return (rows as Record<string, unknown>[]).map((row) => {
-    const items = db.prepare('SELECT * FROM inquiry_item WHERE inquiry_id = ?').all(String(row.id)) as InquiryItem[];
-    return mapInquiry(row, items);
+  await db.insert(Inquiry).values({
+    id,
+    company:  data.company  ?? null,
+    gstin:    data.gstin    ?? null,
+    message:  data.message  ?? null,
+    budget:   data.budget   ?? null,
+    timeline: data.timeline ?? null,
+    source:   data.source   ?? null,
+    currency: data.currency ?? 'INR',
+    contact:  data.contact ?? null,
   });
+  for (const item of data.items ?? []) {
+    await db.insert(InquiryItem).values({
+      id: crypto.randomUUID(), inquiry_id: id,
+      ref_type: item.ref_type, ref_id: item.ref_id, name: item.name,
+      quantity: item.quantity ?? null, note: item.note ?? null,
+    });
+  }
+  return getInquiry(id) as Promise<InquiryType>;
 }
 
-/** Updates the status of an inquiry. */
-export function updateInquiryStatus(id: string, status: InquiryStatus): void {
-  getDb().prepare("UPDATE inquiry SET status = ?, updated_at = datetime('now') WHERE id = ?").run(status, id);
+export async function listInquiries(status?: InquiryStatus, limit = 50): Promise<InquiryType[]> {
+  const rows = await db.select().from(Inquiry)
+    .where(status ? eq(Inquiry.status, status) : undefined)
+    .orderBy(desc(Inquiry.created_at))
+    .limit(limit);
+  return Promise.all(rows.map((r) => getInquiry(r.id) as Promise<InquiryType>));
+}
+
+export async function updateInquiryStatus(id: string, status: InquiryStatus): Promise<void> {
+  await db.update(Inquiry).set({ status, updated_at: new Date().toISOString() }).where(eq(Inquiry.id, id));
 }

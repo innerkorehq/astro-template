@@ -6,7 +6,7 @@ interface Props {
 }
 
 const { handle = 'primary-nav' } = Astro.props;
-const menu        = getMenu(handle);
+const menu        = await getMenu(handle);
 const currentPath = new URL(Astro.request.url).pathname;
 const site        = Astro.locals.siteConfig;
 

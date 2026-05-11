@@ -40,23 +40,22 @@ CREATE INDEX IF NOT EXISTS idx_testimonials_status ON testimonials(status);
 
 ---
 
-## 2. Add seed data
+## 2. Populate data via the authoring layer
 
-Edit `src/db/seed.sql`. Use `INSERT OR IGNORE` so running the seed multiple times is safe.
+There is no `seed.sql` — all data is written through the authoring layer (admin UI, import scripts, or direct SQL). To insert test rows during development, connect to `site.db` with any SQLite client and run `INSERT OR IGNORE` statements:
 
 ```sql
--- src/db/seed.sql
-
+-- example: direct SQL during development
 INSERT OR IGNORE INTO testimonials (id, author_name, author_role, company, text, rating, is_featured, sort_order, status)
 VALUES
   ('t-1', 'Priya Sharma',   'Founder', 'Bloom Studio',     'Transformed our entire design workflow.', 5.0, 1, 0, 'active'),
   ('t-2', 'Rahul Verma',    'CTO',     'BuildMart Pvt Ltd','Best tooling decision we made this year.', 4.5, 0, 1, 'active');
 ```
 
-Then run:
+After schema changes, apply them with:
 
 ```bash
-npm run db:reset   # wipes site.db and re-applies schema + seed
+npm run db:reset   # wipes site.db and re-applies schema.sql only
 ```
 
 ---
@@ -194,9 +193,9 @@ The entry id is the table's `id` column value (e.g. `t.id === "t-1"`).
 
 ```
 1.  src/db/schema.sql          ← CREATE TABLE IF NOT EXISTS
-2.  src/db/seed.sql            ← INSERT OR IGNORE
-3.  src/lib/catalog/loaders.ts ← rowToData() + sqliteXxxLoader()
-4.  src/content.config.ts      ← defineCollection() + Zod schema + export
-5.  npm run db:reset            ← apply schema + seed
+2.  src/lib/catalog/loaders.ts ← rowToData() + sqliteXxxLoader()
+3.  src/content.config.ts      ← defineCollection() + Zod schema + export
+4.  npm run db:reset            ← wipe + re-apply schema (empty DB)
+5.  Insert rows via authoring layer or direct SQL
 6.  Use getCollection('xxx')    ← in pages / resolvers
 ```

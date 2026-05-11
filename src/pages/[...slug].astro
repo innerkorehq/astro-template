@@ -5,8 +5,9 @@ import type { Block } from "@/lib/blocks/types";
 import BaseLayout from "@/layouts/BaseLayout.astro";
 import BlockRenderer from "@/components/BlockRenderer.astro";
 
-export function getStaticPaths() {
-  return getPageTree()
+export async function getStaticPaths() {
+  const pages = await getPageTree();
+  return pages
     .filter((p) => p.status === "published" && p.deleted_at === null && p.path !== "/")
     .map((p) => ({ params: { slug: p.path.replace(/^\//, "") } }));
 }
@@ -15,7 +16,7 @@ const { slug } = Astro.params;
 const path     = `/${slug ?? ""}`;
 const locale   = Astro.locals.siteConfig.locale;
 
-const page = getPageByPath(path, locale);
+const page = await getPageByPath(path, locale);
 
 if (!page || page.status !== "published") return Astro.rewrite("/404");
 
@@ -34,7 +35,7 @@ const ctx = {
 };
 const resolvedBlocks = await resolveBlocks(rawBlocks, ctx);
 
-const seo = getSeoMeta(page.id, locale);
+const seo = await getSeoMeta(page.id, locale);
 
 // Determine if this is a full-page registry render (single root block)
 // or a content page with mixed blocks

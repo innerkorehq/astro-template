@@ -17,13 +17,8 @@ pnpm-debug.log*
 .env
 .env.production
 
-# SQLite databases
-db/*.db
-db/*.db-shm
-db/*.db-wal
-site.db
-site.db-shm
-site.db-wal
+# Astro DB local database (managed by @astrojs/db)
+.astro/
 
 # macOS-specific files
 .DS_Store

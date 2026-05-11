@@ -398,5 +398,5 @@ Collapsible sidebar via `<SidebarToggle />`. No JavaScript framework required.
 |---|---|
 | `npm run dev` | Start dev server |
 | `npm run build` | Production build |
-| `npm run db:init` | Create `site.db` from schema + seed (non-destructive) |
-| `npm run db:reset` | Delete `site.db` and re-init from scratch |
+| `npm run db:init` | Create `site.db` from `schema.sql` only — schema only, no data |
+| `npm run db:reset` | Delete `site.db` and re-init from `schema.sql` |

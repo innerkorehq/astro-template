@@ -232,7 +232,7 @@ SET body = '[{"id":"b1","type":"testimonial/list","attrs":{"limit":6,"featured_o
 WHERE page_id = 'page-about';
 ```
 
-Or seed it in `src/db/seed.sql` from the start.
+Or insert it directly into `site.db` via the authoring layer or a one-off SQL script.
 
 ---
 
