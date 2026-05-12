@@ -1,0 +1,24 @@
+collections:
+  - slug: "blog"
+    name: "Blog"
+    content_type: "blog_post"
+    
+  - slug: "services"
+    name: "Services"
+    content_type: "service_page"
+    
+  - slug: "products"
+    name: "Products"
+    content_type: "product_detail"
+    
+  - slug: "news"
+    name: "News"
+    content_type: "news_article"
+    
+  - slug: "docs"
+    name: "Documentation"
+    content_type: "doc_page"
+
+  - slug: "case-studies"
+    name: "Case Studies"
+    content_type: "case_study"

@@ -1,0 +1,41 @@
+components:
+  announcement:
+    default: "components/registry/announcement/default"
+  article-body:
+    default: "components/registry/article-body/default"
+  banner:
+    default: "components/registry/banner/default"
+  blog-card:
+    default: "components/registry/blog-card/default"
+  comment:
+    default: "components/registry/comment/default"
+  contact:
+    default: "components/registry/contact/default"
+  cta:
+    default: "components/registry/cta/default"
+  faq:
+    default: "components/registry/faq/default"
+  feature:
+    default: "components/registry/feature/default"
+  footer:
+    default: "components/registry/footer/default"
+  header:
+    default: "components/registry/header/default"
+  hero:
+    default: "components/registry/hero/default"
+  map:
+    default: "components/registry/map/default"
+  newsletter:
+    default: "components/registry/newsletter/default"
+  product:
+    default: "components/registry/product/detail"
+    detail: "components/registry/product/detail"
+    grid: "components/registry/product/grid"
+    list: "components/registry/product/list"
+    specs_table: "components/registry/product/detail"
+  related-posts:
+    default: "components/registry/related-posts/default"
+  team:
+    default: "components/registry/team/default"
+  testimonial:
+    default: "components/registry/testimonial/default"
