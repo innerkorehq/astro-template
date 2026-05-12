@@ -1,7 +1,7 @@
 import * as React from "react";
 import { ChevronDown, ExternalLink, Menu } from "lucide-react";
 import { cn } from "@/lib/utils";
-import type { HeaderBlockData, HeaderLink } from "./types.js";
+import type { HeaderBlockData, HeaderLink } from "@/components/utils/header/types";
 
 export interface HeaderDefaultProps {
   readonly data: HeaderBlockData;
