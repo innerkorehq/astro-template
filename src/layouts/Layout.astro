@@ -1,0 +1,126 @@
+---
+/**
+ * Layout.astro — Sitewide layout wrapper for generator-assembled pages.
+ *
+ * Architecture
+ * ────────────
+ * BaseLayout    (HTML shell + <head> + global CSS)
+ *   └── PageLayout (slot-based responsive grid, variant driven by site.db)
+ *         ├── slot="header"  → HeaderDefault (scraped brand + nav links)
+ *         ├── slot (main)    → page body sections injected by generator
+ *         └── slot="footer"  → FooterDefault (scraped brand + footer links)
+ *
+ * Layout variant is read from site_config.layout_variant in site.db.
+ * Valid values: centered | full-width | sidebar-left | sidebar-right |
+ *               sidebar-both | holy-grail | dashboard
+ * Falls back to "full-width" when not set.
+ *
+ * Props accepted (passed by generator-assembled pages)
+ * ────────────────────────────────────────────────────
+ *   title        — page <title> + og:title
+ *   description  — meta description
+ *   headerData   — HeaderBlockData (built from scraped page_pattern)
+ *   footerData   — FooterBlockData (built from scraped page_pattern)
+ *
+ * Named slots
+ * ───────────
+ *   slot="head"  — extra <head> meta / LD+JSON from generator
+ *   (default)    — page body sections
+ */
+
+import BaseLayout from '@/layouts/BaseLayout.astro';
+import PageLayout  from '@/layouts/PageLayout/PageLayout.astro';
+import HeaderDefault from '@/components/registry/header/default';
+import FooterDefault from '@/components/registry/footer/default';
+import type { LayoutVariant } from '@/layouts/PageLayout/types.ts';
+import type { HeaderBlockData } from '@/components/utils/header/types';
+import type { FooterBlockData } from '@/components/utils/footer/types';
+
+interface Props {
+  title: string;
+  description?: string | null;
+  headerData?: HeaderBlockData | null;
+  footerData?: FooterBlockData | null;
+}
+
+const { title, description, headerData, footerData } = Astro.props;
+
+// ── Layout variant from site.db ────────────────────────────────────────────
+// Astro.locals.siteConfig is populated by middleware/index.ts from site_config
+// table. layout_variant defaults to 'full-width' in the DB client.
+const site = Astro.locals.siteConfig;
+const VALID_VARIANTS: LayoutVariant[] = [
+  'centered', 'full-width', 'sidebar-left', 'sidebar-right',
+  'sidebar-both', 'holy-grail', 'dashboard',
+];
+const rawVariant = site?.layout_variant ?? 'full-width';
+const layoutVariant: LayoutVariant = (VALID_VARIANTS.includes(rawVariant as LayoutVariant)
+  ? rawVariant
+  : 'full-width') as LayoutVariant;
+
+// ── Default header ─────────────────────────────────────────────────────────
+const defaultHeaderData: HeaderBlockData = {
+  brand:      { name: site?.name ?? title, href: '/' },
+  links:      [],
+  menuHandle: '',
+  menuLabel:  'Navigation',
+  appearance: {
+    style:      'default',
+    width:      'container',
+    align:      'split',
+    sticky:     true,
+    showTagline: false,
+    showBadges:  false,
+    showIcons:   false,
+    showImages:  false,
+  },
+  attrs: {},
+};
+
+// ── Default footer ─────────────────────────────────────────────────────────
+const year = new Date().getFullYear();
+const defaultFooterData: FooterBlockData = {
+  brand:              { name: site?.name ?? title, href: '/' },
+  links:              [],
+  secondaryLinks:     [],
+  menuHandle:         '',
+  menuLabel:          'Footer',
+  secondaryMenuHandle:'',
+  secondaryMenuLabel: '',
+  appearance: {
+    style:       'default',
+    layout:      'short',
+    width:       'container',
+    align:       'split',
+    showTagline:  false,
+    showIcons:    false,
+    showImages:   false,
+    showSocials:  false,
+  },
+  attrs: { copyright: `© ${year} ${site?.name ?? title}` },
+};
+
+const hData = headerData ?? defaultHeaderData;
+const fData = footerData ?? defaultFooterData;
+---
+
+<BaseLayout
+  title={title}
+  description={description}
+  ogTitle={title}
+  ogDescription={description}
+>
+  <!-- Extra <head> content from generator (SEO, LD+JSON) -->
+  <slot name="head" slot="head" />
+
+  <PageLayout variant={layoutVariant} centeredMaxWidth="80rem">
+    <!-- Sitewide Header -->
+    <HeaderDefault slot="header" client:load data={hData} />
+
+    <!-- Page body sections (default slot → PageLayout main area) -->
+    <slot />
+
+    <!-- Sitewide Footer -->
+    <FooterDefault slot="footer" client:load data={fData} />
+  </PageLayout>
+</BaseLayout>

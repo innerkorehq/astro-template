@@ -2,7 +2,7 @@
 import { getPageByPath, getPageTree, getSeoMeta } from "@/db/index";
 import { resolveBlocks } from "@/lib/blocks/resolver";
 import type { Block } from "@/lib/blocks/types";
-import BaseLayout from "@/layouts/BaseLayout.astro";
+import Layout from "@/layouts/Layout.astro";
 import BlockRenderer from "@/components/BlockRenderer.astro";
 
 export async function getStaticPaths() {
@@ -43,15 +43,9 @@ const seo = await getSeoMeta(page.id, locale);
 const isRegistryPage = resolvedBlocks.length === 1 && resolvedBlocks[0]?.category !== "heading";
 ---
 
-<BaseLayout
+<Layout
   title={seo?.meta_title ?? page.content?.title ?? page.slug}
   description={seo?.meta_description ?? page.content?.description}
-  canonical={seo?.canonical_url}
-  ogTitle={seo?.og_title}
-  ogDescription={seo?.og_description}
-  ogImage={seo?.og_image}
-  noindex={Boolean(seo?.noindex)}
-  nofollow={Boolean(seo?.nofollow)}
 >
   {isRegistryPage
     ? (
@@ -79,4 +73,5 @@ const isRegistryPage = resolvedBlocks.length === 1 && resolvedBlocks[0]?.categor
       </article>
     )
   }
-</BaseLayout>
+</Layout>
+

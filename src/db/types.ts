@@ -27,6 +27,10 @@ export interface SiteConfig {
   social_instagram: string | null;
   social_facebook: string | null;
   contact: Record<string, unknown>;     // parsed JSON
+  /** PageLayout variant — drives layout for all generated pages.
+   *  One of: 'centered' | 'full-width' | 'sidebar-left' | 'sidebar-right' | 'sidebar-both' | 'holy-grail' | 'dashboard'
+   *  Defaults to 'full-width' when null/undefined. */
+  layout_variant: string | null;
   created_at: string;
   updated_at: string;
 }

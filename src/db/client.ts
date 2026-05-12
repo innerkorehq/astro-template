@@ -42,6 +42,7 @@ const SITE_CONFIG_DEFAULTS: SiteConfigType = {
   social_twitter: null, social_linkedin: null, social_github: null,
   social_youtube: null, social_instagram: null, social_facebook: null,
   contact: {}, meta: {},
+  layout_variant: 'full-width',
   created_at: new Date().toISOString(),
   updated_at: new Date().toISOString(),
 };
@@ -70,8 +71,9 @@ export async function getSiteConfig(): Promise<SiteConfigType> {
   if (!row) return SITE_CONFIG_DEFAULTS;
   return {
     ...(row as unknown as SiteConfigType),
-    contact: (row.contact as Record<string, unknown>) ?? {},
-    meta:    (row.meta    as Record<string, unknown>) ?? {},
+    contact:        (row.contact        as Record<string, unknown>) ?? {},
+    meta:           (row.meta           as Record<string, unknown>) ?? {},
+    layout_variant: (row.layout_variant as string | null)           ?? 'full-width',
   };
 }
 

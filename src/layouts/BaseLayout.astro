@@ -1,5 +1,17 @@
 ---
-import Navigation from '@/components/Navigation.astro';
+/**
+ * BaseLayout.astro — HTML shell only.
+ *
+ * Provides the outer <html>, <head> (charset, viewport, title, SEO, favicon,
+ * global CSS), and <body> wrapper.  Navigation, header, footer and page
+ * structure are left to composing layouts (e.g. Layout.astro → PageLayout).
+ *
+ * Named slots
+ * ───────────
+ *   slot="head"  — extra <head> elements (canonical, LD+JSON, OG tags…)
+ *   (default)    — body content (PageLayout or plain slot)
+ */
+
 import '@/styles/global.css';
 
 interface Props {
@@ -24,13 +36,13 @@ const {
   nofollow = false,
 } = Astro.props;
 
-const site    = Astro.locals.siteConfig;
-const robots  = [noindex ? 'noindex' : 'index', nofollow ? 'nofollow' : 'follow'].join(', ');
-const fullTitle = title === site.name ? title : `${title} | ${site.name}`;
+const site      = Astro.locals.siteConfig;
+const robots    = [noindex ? 'noindex' : 'index', nofollow ? 'nofollow' : 'follow'].join(', ');
+const fullTitle = title === site?.name ? title : `${title}${site?.name ? ` | ${site.name}` : ''}`;
 ---
 
 <!doctype html>
-<html lang={site.locale}>
+<html lang={site?.locale ?? 'en'}>
   <head>
     <meta charset="UTF-8" />
     <meta name="viewport" content="width=device-width, initial-scale=1.0" />
@@ -47,21 +59,15 @@ const fullTitle = title === site.name ? title : `${title} | ${site.name}`;
     )}
     {ogImage && <meta property="og:image" content={ogImage} />}
 
-    {site.favicon_url
+    {site?.favicon_url
       ? <link rel="icon" href={site.favicon_url} />
       : <link rel="icon" href="/favicon.svg" type="image/svg+xml" />
     }
+
+    <!-- Extra head content (LD+JSON, canonical overrides, additional meta) -->
+    <slot name="head" />
   </head>
-  <body class="bg-background text-foreground min-h-screen flex flex-col">
-    <Navigation />
-    <main id="main-content" tabindex="-1" class="flex-1">
-      <slot />
-    </main>
-    <footer class="border-t border-border py-6">
-      <div class="max-w-5xl mx-auto px-4 sm:px-6 lg:px-8 flex items-center justify-between text-xs text-muted-foreground">
-        <span>© {new Date().getFullYear()} {site.name}</span>
-        {site.tagline && <span class="hidden sm:inline">{site.tagline}</span>}
-      </div>
-    </footer>
+  <body class="bg-background text-foreground min-h-screen">
+    <slot />
   </body>
 </html>

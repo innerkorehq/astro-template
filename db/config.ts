@@ -41,6 +41,9 @@ const SiteConfig = defineTable({
     social_facebook:  column.text({ optional: true }),
     contact:          column.json({ optional: true }),     // ContactInfo
     meta:             column.json({ optional: true }),     // features, analytics, rss…
+    // Layout control — drives PageLayout variant for all generated pages
+    // One of: centered | full-width | sidebar-left | sidebar-right | sidebar-both | holy-grail | dashboard
+    layout_variant:   column.text({ optional: true }),    // default resolved in client.ts as 'full-width'
     created_at:       column.text({ default: NOW }),
     updated_at:       column.text({ default: NOW }),
   },
