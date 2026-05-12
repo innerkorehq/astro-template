@@ -15,6 +15,7 @@ export {
   listContentCollections,
   getContentAuthor,
   listContentAuthors,
+  getProductBySlug,
 } from './client.js';
 
 export type { ListDocumentsOptions } from './client.js';

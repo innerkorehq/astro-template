@@ -9,7 +9,7 @@
 import {
   db,
   Page, PageContent, SeoMeta, SiteConfig, Menu, MenuItem,
-  ContentDocument, ContentCollection, ContentAuthor,
+  ContentDocument, ContentCollection, ContentAuthor, Products,
   eq, and, isNull, asc, desc,
 } from 'astro:db';
 
@@ -244,6 +244,11 @@ export async function getContentAuthor(id: string): Promise<ContentAuthorType | 
 export async function listContentAuthors(): Promise<ContentAuthorType[]> {
   const rows = await db.select().from(ContentAuthor).orderBy(asc(ContentAuthor.name));
   return rows as unknown as ContentAuthorType[];
+}
+
+export async function getProductBySlug(slug: string) {
+  const rows = await db.select().from(Products).where(eq(Products.slug, slug));
+  return rows[0] || null;
 }
 
 // Re-export types for convenience

@@ -36,11 +36,28 @@ const ctx = {
 };
 const resolvedBlocks = await resolveBlocks(rawBlocks, ctx);
 
+// If this page maps to a product, fetch it and prepend the detail component
+if (page.template === "product_detail") {
+  const { getProductBySlug } = await import("@/db/index");
+  // path is e.g. "/chemical-earthing-electrode", remove leading slash
+  const productSlug = path.replace(/^\//, "");
+  const product = await getProductBySlug(productSlug);
+  
+  if (product) {
+    resolvedBlocks.unshift({
+      category: "product",
+      variant: "detail",
+      data: { product },
+      attrs: { variant: "classic" }
+    } as any);
+  }
+}
+
 const seo = await getSeoMeta(page.id, locale);
 
 // Determine if this is a full-page registry render (single root block)
 // or a content page with mixed blocks
-const isRegistryPage = resolvedBlocks.length === 1 && resolvedBlocks[0]?.category !== "heading";
+const isRegistryPage = page.template === "product_detail" || (resolvedBlocks.length === 1 && resolvedBlocks[0]?.category !== "heading");
 ---
 
 <Layout
