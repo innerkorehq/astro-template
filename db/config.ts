@@ -340,6 +340,7 @@ const Products = defineTable({
   columns: {
     id:                column.text({ primaryKey: true }),
     name:              column.text(),
+    slug:              column.text({ optional: true }),
     short_name:        column.text({ optional: true }),
     tagline:           column.text({ optional: true }),
     description:       column.text({ optional: true }),
@@ -386,6 +387,7 @@ const Categories = defineTable({
   columns: {
     id:          column.text({ primaryKey: true }),
     name:        column.text(),
+    slug:        column.text({ optional: true }),
     description: column.text({ optional: true }),
     parent_id:   column.text({ optional: true }),
     type:        column.text({ default: 'product' }),
@@ -408,6 +410,7 @@ const Services = defineTable({
   columns: {
     id:                column.text({ primaryKey: true }),
     name:              column.text(),
+    slug:              column.text({ optional: true }),
     tagline:           column.text({ optional: true }),
     description:       column.text({ optional: true }),
     short_desc:        column.text({ optional: true }),
